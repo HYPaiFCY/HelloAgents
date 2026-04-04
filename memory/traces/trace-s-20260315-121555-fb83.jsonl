@@ -1,0 +1,3 @@
+{"ts": "2026-03-15T12:15:55.953397", "session_id": "s-20260315-121555-fb83", "step": null, "event": "session_start", "payload": {"agent_name": "测试助手", "agent_type": "SimpleAgent"}}
+{"ts": "2026-03-15T12:15:55.953397", "session_id": "s-20260315-121555-fb83", "step": null, "event": "message_written", "payload": {"role": "user", "content": ""}}
+{"ts": "2026-03-15T12:15:57.875340", "session_id": "s-20260315-121555-fb83", "step": null, "event": "session_end", "payload": {"duration": 1.922939, "final_answer": "Hello! How can I assist you today?", "status": "success", "usage": {"prompt_tokens": 7, "completion_tokens": 10, "total_tokens": 17}, "latency_ms": 1888}}

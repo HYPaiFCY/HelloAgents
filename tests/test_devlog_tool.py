@@ -18,7 +18,7 @@ from hello_agents.tools.builtin.devlog_tool import (
     DevLogTool,
     DevLogEntry,
     DevLogStore,
-    CATEGORIES
+    CATEGORIES,
 )
 from hello_agents.tools.response import ToolResponse, ToolStatus
 from hello_agents.tools.errors import ToolErrorCode
@@ -26,7 +26,9 @@ from hello_agents import ReActAgent, ToolRegistry
 from hello_agents.core.llm import HelloAgentsLLM
 from hello_agents.core.config import Config
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 class TestDevLogEntry:
     """测试 DevLogEntry 数据模型"""
@@ -34,9 +36,7 @@ class TestDevLogEntry:
     def test_create_entry(self):
         """测试创建日志条目"""
         entry = DevLogEntry.create(
-            category="decision",
-            content="选择使用 Redis",
-            metadata={"tags": ["cache"]}
+            category="decision", content="选择使用 Redis", metadata={"tags": ["cache"]}
         )
 
         assert entry.id.startswith("log-")
@@ -62,7 +62,7 @@ class TestDevLogEntry:
             "timestamp": "2026-02-20T12:00:00",
             "category": "solution",
             "content": "增加超时时间",
-            "metadata": {"step": 5}
+            "metadata": {"step": 5},
         }
         entry = DevLogEntry.from_dict(data)
 
@@ -107,7 +107,9 @@ class TestDevLogStore:
     def test_filter_by_tags(self):
         """测试按标签过滤"""
         store = DevLogStore.create("s-test-004", "TestAgent")
-        store.append(DevLogEntry.create("decision", "决策1", {"tags": ["cache", "redis"]}))
+        store.append(
+            DevLogEntry.create("decision", "决策1", {"tags": ["cache", "redis"]})
+        )
         store.append(DevLogEntry.create("decision", "决策2", {"tags": ["database"]}))
         store.append(DevLogEntry.create("issue", "问题1", {"tags": ["cache"]}))
 
@@ -148,6 +150,8 @@ class TestDevLogStore:
         store.append(DevLogEntry.create("issue", "问题1"))
 
         summary = store.generate_summary()
+        print("生成的摘要:")
+        print(summary)
 
         assert "2 条日志" in summary
         assert "decision" in summary
@@ -180,7 +184,7 @@ class TestDevLogTool:
                 session_id="s-test-009",
                 agent_name="TestAgent",
                 project_root=temp_dir,
-                persistence_dir="devlogs"
+                persistence_dir="devlogs",
             )
 
             assert tool.name == "DevLog"
@@ -195,15 +199,17 @@ class TestDevLogTool:
                 session_id="s-test-010",
                 agent_name="TestAgent",
                 project_root=temp_dir,
-                persistence_dir="devlogs"
+                persistence_dir="devlogs",
             )
 
-            response = tool.run({
-                "action": "append",
-                "category": "decision",
-                "content": "选择使用 Redis 作为缓存层",
-                "metadata": {"tags": ["cache", "redis"]}
-            })
+            response = tool.run(
+                {
+                    "action": "append",
+                    "category": "decision",
+                    "content": "选择使用 Redis 作为缓存层",
+                    "metadata": {"tags": ["cache", "redis"]},
+                }
+            )
 
             assert response.status == ToolStatus.SUCCESS
             assert "日志已记录" in response.text
@@ -214,15 +220,10 @@ class TestDevLogTool:
         """测试追加时缺少类别"""
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = DevLogTool(
-                session_id="s-test-011",
-                agent_name="TestAgent",
-                project_root=temp_dir
+                session_id="s-test-011", agent_name="TestAgent", project_root=temp_dir
             )
 
-            response = tool.run({
-                "action": "append",
-                "content": "测试内容"
-            })
+            response = tool.run({"action": "append", "content": "测试内容"})
 
             assert response.status == ToolStatus.ERROR
             assert "必须指定 category" in response.text
@@ -231,16 +232,16 @@ class TestDevLogTool:
         """测试追加时使用无效类别"""
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = DevLogTool(
-                session_id="s-test-012",
-                agent_name="TestAgent",
-                project_root=temp_dir
+                session_id="s-test-012", agent_name="TestAgent", project_root=temp_dir
             )
 
-            response = tool.run({
-                "action": "append",
-                "category": "invalid_category",
-                "content": "测试内容"
-            })
+            response = tool.run(
+                {
+                    "action": "append",
+                    "category": "invalid_category",
+                    "content": "测试内容",
+                }
+            )
 
             assert response.status == ToolStatus.ERROR
             assert "无效的类别" in response.text
@@ -249,9 +250,7 @@ class TestDevLogTool:
         """测试读取操作"""
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = DevLogTool(
-                session_id="s-test-013",
-                agent_name="TestAgent",
-                project_root=temp_dir
+                session_id="s-test-013", agent_name="TestAgent", project_root=temp_dir
             )
 
             # 添加一些日志
@@ -269,9 +268,7 @@ class TestDevLogTool:
         """测试带过滤的读取"""
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = DevLogTool(
-                session_id="s-test-014",
-                agent_name="TestAgent",
-                project_root=temp_dir
+                session_id="s-test-014", agent_name="TestAgent", project_root=temp_dir
             )
 
             # 添加日志
@@ -280,10 +277,7 @@ class TestDevLogTool:
             tool.run({"action": "append", "category": "decision", "content": "决策2"})
 
             # 只读取 decision 类别
-            response = tool.run({
-                "action": "read",
-                "filter": {"category": "decision"}
-            })
+            response = tool.run({"action": "read", "filter": {"category": "decision"}})
 
             assert response.status == ToolStatus.SUCCESS
             assert len(response.data["entries"]) == 2
@@ -293,9 +287,7 @@ class TestDevLogTool:
         """测试摘要操作"""
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = DevLogTool(
-                session_id="s-test-015",
-                agent_name="TestAgent",
-                project_root=temp_dir
+                session_id="s-test-015", agent_name="TestAgent", project_root=temp_dir
             )
 
             # 添加日志
@@ -313,9 +305,7 @@ class TestDevLogTool:
         """测试清空操作"""
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = DevLogTool(
-                session_id="s-test-016",
-                agent_name="TestAgent",
-                project_root=temp_dir
+                session_id="s-test-016", agent_name="TestAgent", project_root=temp_dir
             )
 
             # 添加日志
@@ -339,7 +329,7 @@ class TestDevLogTool:
                 session_id=session_id,
                 agent_name="TestAgent",
                 project_root=temp_dir,
-                persistence_dir="devlogs"
+                persistence_dir="devlogs",
             )
             tool1.run({"action": "append", "category": "decision", "content": "决策1"})
 
@@ -352,7 +342,7 @@ class TestDevLogTool:
                 session_id=session_id,
                 agent_name="TestAgent",
                 project_root=temp_dir,
-                persistence_dir="devlogs"
+                persistence_dir="devlogs",
             )
 
             assert len(tool2.store.entries) == 1
@@ -372,7 +362,7 @@ class TestAgentIntegration:
                 session_enabled=False,
                 todowrite_enabled=False,
                 subagent_enabled=False,
-                skills_enabled=False
+                skills_enabled=False,
             )
 
             registry = ToolRegistry()
@@ -383,7 +373,7 @@ class TestAgentIntegration:
                 llm=llm,
                 tool_registry=registry,
                 config=config,
-                max_steps=3
+                max_steps=3,
             )
 
             # 验证 DevLogTool 已注册
@@ -400,7 +390,7 @@ class TestAgentIntegration:
             session_enabled=False,
             todowrite_enabled=False,
             subagent_enabled=False,
-            skills_enabled=False
+            skills_enabled=False,
         )
 
         registry = ToolRegistry()
@@ -411,7 +401,7 @@ class TestAgentIntegration:
             llm=llm,
             tool_registry=registry,
             config=config,
-            max_steps=3
+            max_steps=3,
         )
 
         # 验证 DevLogTool 未注册
@@ -420,5 +410,6 @@ class TestAgentIntegration:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
-
+    # pytest.main([__file__, "-v"])
+    devlogstore = TestDevLogStore()
+    devlogstore.test_generate_summary()

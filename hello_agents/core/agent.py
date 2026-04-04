@@ -35,7 +35,7 @@ class Agent(ABC):
         llm: HelloAgentsLLM,
         system_prompt: Optional[str] = None,
         config: Optional[Config] = None,
-        tool_registry: Optional['ToolRegistry'] = None
+        tool_registry: Optional["ToolRegistry"] = None,
     ):
         self.name = name
         self.llm = llm
@@ -51,18 +51,19 @@ class Agent(ABC):
 
         self.history_manager = HistoryManager(
             min_retain_rounds=self.config.min_retain_rounds,
-            compression_threshold=self.config.compression_threshold
+            compression_threshold=self.config.compression_threshold,
         )
 
         self.truncator = ObservationTruncator(
             max_lines=self.config.tool_output_max_lines,
             max_bytes=self.config.tool_output_max_bytes,
             truncate_direction=self.config.tool_output_truncate_direction,
-            output_dir=self.config.tool_output_dir
+            output_dir=self.config.tool_output_dir,
         )
 
         # 新增：Token 计数器（缓存 + 增量计算）
         from ..context.token_counter import TokenCounter
+
         self.token_counter = TokenCounter(model=self.llm.model)
         self._history_token_count = 0  # 缓存历史 Token 数
 
@@ -74,7 +75,7 @@ class Agent(ABC):
             self.trace_logger = TraceLogger(
                 output_dir=self.config.trace_dir,
                 sanitize=self.config.trace_sanitize,
-                html_include_raw_response=self.config.trace_html_include_raw_response
+                html_include_raw_response=self.config.trace_html_include_raw_response,
             )
             # 记录会话开始
             self.trace_logger.log_event(
@@ -82,8 +83,8 @@ class Agent(ABC):
                 {
                     "agent_name": self.name,
                     "agent_type": self.__class__.__name__,
-                    "config": self.config.dict()
-                }
+                    "config": self.config.dict(),
+                },
             )
 
         # 新增：Skills 知识外化组件
@@ -98,6 +99,7 @@ class Agent(ABC):
             # 自动注册 SkillTool
             if self.config.skills_auto_register and self.tool_registry:
                 from hello_agents.tools.builtin.skill_tool import SkillTool
+
                 skill_tool = SkillTool(skill_loader=self.skill_loader)
                 self.tool_registry.register_tool(skill_tool)
 
@@ -114,7 +116,7 @@ class Agent(ABC):
             "created_at": datetime.now().isoformat(),
             "total_tokens": 0,
             "total_steps": 0,
-            "duration_seconds": 0
+            "duration_seconds": 0,
         }
         self._start_time = datetime.now()
 
@@ -156,7 +158,7 @@ class Agent(ABC):
         on_step: LifecycleHook = None,
         on_finish: LifecycleHook = None,
         on_error: LifecycleHook = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         异步执行 Agent（基础版本）
@@ -180,26 +182,17 @@ class Agent(ABC):
             >>> result = await agent.arun("Hello", on_start=my_hook)
         """
         # 触发开始事件
-        await self._emit_event(
-            EventType.AGENT_START,
-            on_start,
-            input_text=input_text
-        )
+        await self._emit_event(EventType.AGENT_START, on_start, input_text=input_text)
 
         try:
             # 默认实现：在线程池中运行同步 run()
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
-                None,
-                lambda: self.run(input_text, **kwargs)
+                None, lambda: self.run(input_text, **kwargs)
             )
 
             # 触发完成事件
-            await self._emit_event(
-                EventType.AGENT_FINISH,
-                on_finish,
-                result=result
-            )
+            await self._emit_event(EventType.AGENT_FINISH, on_finish, result=result)
 
             return result
 
@@ -209,14 +202,12 @@ class Agent(ABC):
                 EventType.AGENT_ERROR,
                 on_error,
                 error=str(e),
-                error_type=type(e).__name__
+                error_type=type(e).__name__,
             )
             raise
 
     async def arun_stream(
-        self,
-        input_text: str,
-        **kwargs
+        self, input_text: str, **kwargs
     ) -> AsyncGenerator[AgentEvent, None]:
         """
         流式执行 Agent（基础版本）
@@ -236,38 +227,25 @@ class Agent(ABC):
             ...     print(event.type, event.data)
         """
         # 开始事件
-        yield AgentEvent.create(
-            EventType.AGENT_START,
-            self.name,
-            input_text=input_text
-        )
+        yield AgentEvent.create(EventType.AGENT_START, self.name, input_text=input_text)
 
         # 执行
         try:
             result = await self.arun(input_text, **kwargs)
 
             # 完成事件
-            yield AgentEvent.create(
-                EventType.AGENT_FINISH,
-                self.name,
-                result=result
-            )
+            yield AgentEvent.create(EventType.AGENT_FINISH, self.name, result=result)
         except Exception as e:
             # 错误事件
             yield AgentEvent.create(
                 EventType.AGENT_ERROR,
                 self.name,
                 error=str(e),
-                error_type=type(e).__name__
+                error_type=type(e).__name__,
             )
             raise
 
-    async def _emit_event(
-        self,
-        event_type: EventType,
-        hook: LifecycleHook,
-        **data
-    ):
+    async def _emit_event(self, event_type: EventType, hook: LifecycleHook, **data):
         """触发事件并调用钩子
 
         Args:
@@ -280,21 +258,20 @@ class Agent(ABC):
         if hook:
             try:
                 # 使用 asyncio.wait_for 设置超时
-                timeout = getattr(self.config, 'hook_timeout_seconds', 5.0)
+                timeout = getattr(self.config, "hook_timeout_seconds", 5.0)
                 await asyncio.wait_for(hook(event), timeout=timeout)
             except asyncio.TimeoutError:
                 # 钩子超时不应中断主流程
-                if hasattr(self, 'trace_logger') and self.trace_logger:
+                if hasattr(self, "trace_logger") and self.trace_logger:
                     self.trace_logger.log_event(
                         "hook_timeout",
-                        {"event_type": event_type.value, "timeout": timeout}
+                        {"event_type": event_type.value, "timeout": timeout},
                     )
             except Exception as e:
                 # 钩子异常不应中断主流程
-                if hasattr(self, 'trace_logger') and self.trace_logger:
+                if hasattr(self, "trace_logger") and self.trace_logger:
                     self.trace_logger.log_event(
-                        "hook_error",
-                        {"event_type": event_type.value, "error": str(e)}
+                        "hook_error", {"event_type": event_type.value, "error": str(e)}
                     )
 
     def add_message(self, message: Message):
@@ -432,15 +409,18 @@ class Agent(ABC):
             summary_llm = self._get_summary_llm()
 
             messages = [
-                {"role": "system", "content": "你是一个专业的对话摘要助手，擅长提取关键信息。"},
-                {"role": "user", "content": summary_prompt}
+                {
+                    "role": "system",
+                    "content": "你是一个专业的对话摘要助手，擅长提取关键信息。",
+                },
+                {"role": "user", "content": summary_prompt},
             ]
 
             # 非流式调用，快速获取结果
             summary = summary_llm.invoke(
                 messages,
                 temperature=self.config.summary_temperature,
-                max_tokens=self.config.summary_max_tokens
+                max_tokens=self.config.summary_max_tokens,
             )
 
             return f"""## 历史摘要（{len(to_compress)} 条消息）
@@ -479,7 +459,7 @@ class Agent(ABC):
         Returns:
             HelloAgentsLLM 实例
         """
-        if not hasattr(self, '_summary_llm'):
+        if not hasattr(self, "_summary_llm"):
             from ..core.llm import HelloAgentsLLM
 
             # 使用配置中的轻量模型
@@ -490,7 +470,7 @@ class Agent(ABC):
                 provider=provider,
                 model=model,
                 temperature=self.config.summary_temperature,
-                max_tokens=self.config.summary_max_tokens
+                max_tokens=self.config.summary_max_tokens,
             )
 
         return self._summary_llm
@@ -529,10 +509,13 @@ class Agent(ABC):
                 parameters = []
 
             for param in parameters:
+                param_type = self._map_parameter_type(param.type)
                 properties[param.name] = {
-                    "type": self._map_parameter_type(param.type),
-                    "description": param.description or ""
+                    "type": param_type,
+                    "description": param.description or "",
                 }
+                if param_type == "array":
+                    properties[param.name]["items"] = {"type": "object"}
                 if param.default is not None:
                     properties[param.name]["default"] = param.default
                 if getattr(param, "required", True):
@@ -543,11 +526,8 @@ class Agent(ABC):
                 "function": {
                     "name": tool.name,
                     "description": tool.description or "",
-                    "parameters": {
-                        "type": "object",
-                        "properties": properties
-                    }
-                }
+                    "parameters": {"type": "object", "properties": properties},
+                },
             }
             if required:
                 schema["function"]["parameters"]["required"] = required
@@ -556,23 +536,22 @@ class Agent(ABC):
         # 2. 处理函数工具
         function_map = getattr(self.tool_registry, "_functions", {})
         for name, info in function_map.items():
-            schemas.append({
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": info.get("description", ""),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "input": {
-                                "type": "string",
-                                "description": "输入文本"
-                            }
+            schemas.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": info.get("description", ""),
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "input": {"type": "string", "description": "输入文本"}
+                            },
+                            "required": ["input"],
                         },
-                        "required": ["input"]
-                    }
+                    },
                 }
-            })
+            )
 
         return schemas
 
@@ -591,7 +570,9 @@ class Agent(ABC):
             return normalized
         return "string"
 
-    def _convert_parameter_types(self, tool_name: str, param_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def _convert_parameter_types(
+        self, tool_name: str, param_dict: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """根据工具定义转换参数类型
 
         Args:
@@ -670,8 +651,13 @@ class Agent(ABC):
 
                 # 根据状态添加前缀
                 from ..tools.response import ToolStatus
+
                 if response.status == ToolStatus.ERROR:
-                    error_code = response.error_info.get("code", "UNKNOWN") if response.error_info else "UNKNOWN"
+                    error_code = (
+                        response.error_info.get("code", "UNKNOWN")
+                        if response.error_info
+                        else "UNKNOWN"
+                    )
                     return f"❌ 错误 [{error_code}]: {response.text}"
                 elif response.status == ToolStatus.PARTIAL:
                     return f"⚠️ 部分成功: {response.text}"
@@ -689,8 +675,13 @@ class Agent(ABC):
 
                 # 根据状态添加前缀
                 from ..tools.response import ToolStatus
+
                 if response.status == ToolStatus.ERROR:
-                    error_code = response.error_info.get("code", "UNKNOWN") if response.error_info else "UNKNOWN"
+                    error_code = (
+                        response.error_info.get("code", "UNKNOWN")
+                        if response.error_info
+                        else "UNKNOWN"
+                    )
                     return f"❌ 错误 [{error_code}]: {response.text}"
                 elif response.status == ToolStatus.PARTIAL:
                     return f"⚠️ 部分成功: {response.text}"
@@ -715,7 +706,7 @@ class Agent(ABC):
                 tool_schema_hash=self._compute_tool_schema_hash(),
                 read_cache=self._get_read_cache(),
                 metadata=self._session_metadata,
-                session_name="session-auto"
+                session_name="session-auto",
             )
         except Exception as e:
             # 自动保存失败不影响主流程
@@ -735,11 +726,16 @@ class Agent(ABC):
             RuntimeError: 会话持久化未启用
         """
         if not self.session_store:
-            raise RuntimeError("会话持久化未启用，请在 Config 中设置 session_enabled=True")
+            raise RuntimeError(
+                "会话持久化未启用，请在 Config 中设置 session_enabled=True"
+            )
 
         # 更新元数据
         from datetime import datetime
-        self._session_metadata["duration_seconds"] = (datetime.now() - self._start_time).total_seconds()
+
+        self._session_metadata["duration_seconds"] = (
+            datetime.now() - self._start_time
+        ).total_seconds()
 
         filepath = self.session_store.save(
             agent_config=self._get_agent_config(),
@@ -747,7 +743,7 @@ class Agent(ABC):
             tool_schema_hash=self._compute_tool_schema_hash(),
             read_cache=self._get_read_cache(),
             metadata=self._session_metadata,
-            session_name=session_name
+            session_name=session_name,
         )
 
         return filepath
@@ -764,7 +760,9 @@ class Agent(ABC):
             FileNotFoundError: 文件不存在
         """
         if not self.session_store:
-            raise RuntimeError("会话持久化未启用，请在 Config 中设置 session_enabled=True")
+            raise RuntimeError(
+                "会话持久化未启用，请在 Config 中设置 session_enabled=True"
+            )
 
         # 加载会话数据
         session_data = self.session_store.load(filepath)
@@ -774,7 +772,7 @@ class Agent(ABC):
             # 检查配置一致性
             config_check = self.session_store.check_config_consistency(
                 saved_config=session_data.get("agent_config", {}),
-                current_config=self._get_agent_config()
+                current_config=self._get_agent_config(),
             )
 
             if not config_check["consistent"]:
@@ -785,7 +783,7 @@ class Agent(ABC):
             # 检查工具 Schema 一致性
             tool_check = self.session_store.check_tool_schema_consistency(
                 saved_hash=session_data.get("tool_schema_hash", ""),
-                current_hash=self._compute_tool_schema_hash()
+                current_hash=self._compute_tool_schema_hash(),
             )
 
             if tool_check["changed"]:
@@ -794,6 +792,7 @@ class Agent(ABC):
 
         # 恢复历史
         from .message import Message
+
         self.history_manager.clear()
         for msg_data in session_data.get("history", []):
             self.history_manager.append(Message.from_dict(msg_data))
@@ -827,12 +826,14 @@ class Agent(ABC):
         config = {
             "name": self.name,
             "agent_type": self.__class__.__name__,
-            "llm_provider": getattr(self.llm, 'provider', 'unknown'),
-            "llm_model": getattr(self.llm, 'model_id', getattr(self.llm, 'model', 'unknown'))
+            "llm_provider": getattr(self.llm, "provider", "unknown"),
+            "llm_model": getattr(
+                self.llm, "model_id", getattr(self.llm, "model", "unknown")
+            ),
         }
 
         # 添加 max_steps（如果存在）
-        if hasattr(self, 'max_steps'):
+        if hasattr(self, "max_steps"):
             config["max_steps"] = self.max_steps
 
         return config
@@ -859,7 +860,11 @@ class Agent(ABC):
                 tools_signature[tool_name] = {
                     "name": tool.name,
                     "description": tool.description[:100] if tool.description else "",
-                    "parameters": list(tool.parameters.keys()) if hasattr(tool, 'parameters') and tool.parameters else []
+                    "parameters": (
+                        list(tool.parameters.keys())
+                        if hasattr(tool, "parameters") and tool.parameters
+                        else []
+                    ),
                 }
 
         schema_str = json.dumps(tools_signature, sort_keys=True)
@@ -871,7 +876,7 @@ class Agent(ABC):
         Returns:
             元数据缓存字典
         """
-        if self.tool_registry and hasattr(self.tool_registry, 'read_metadata_cache'):
+        if self.tool_registry and hasattr(self.tool_registry, "read_metadata_cache"):
             return self.tool_registry.read_metadata_cache
         return {}
 
@@ -880,9 +885,9 @@ class Agent(ABC):
     def run_as_subagent(
         self,
         task: str,
-        tool_filter: Optional['ToolFilter'] = None,
+        tool_filter: Optional["ToolFilter"] = None,
         return_summary: bool = True,
-        max_steps_override: Optional[int] = None
+        max_steps_override: Optional[int] = None,
     ) -> Dict[str, Any]:
         """作为子代理运行（上下文隔离模式）
 
@@ -928,7 +933,7 @@ class Agent(ABC):
             original_tools = self._apply_tool_filter(tool_filter)
 
         # 4. 覆盖最大步数（如果提供）
-        if max_steps_override is not None and hasattr(self, 'max_steps'):
+        if max_steps_override is not None and hasattr(self, "max_steps"):
             original_max_steps = self.max_steps
             self.max_steps = max_steps_override
 
@@ -975,19 +980,11 @@ class Agent(ABC):
 
         # 9. 返回结果
         if return_summary:
-            return {
-                "success": success,
-                "summary": summary,
-                "metadata": metadata
-            }
+            return {"success": success, "summary": summary, "metadata": metadata}
         else:
-            return {
-                "success": success,
-                "result": result,
-                "metadata": metadata
-            }
+            return {"success": success, "result": result, "metadata": metadata}
 
-    def _apply_tool_filter(self, tool_filter: 'ToolFilter') -> List[str]:
+    def _apply_tool_filter(self, tool_filter: "ToolFilter") -> List[str]:
         """应用工具过滤器
 
         Args:
@@ -1009,7 +1006,7 @@ class Agent(ABC):
         for tool_name in original_tools:
             if tool_name not in filtered_tools:
                 self.tool_registry._temp_disabled_tools = getattr(
-                    self.tool_registry, '_temp_disabled_tools', {}
+                    self.tool_registry, "_temp_disabled_tools", {}
                 )
                 tool = self.tool_registry.get_tool(tool_name)
                 if tool:
@@ -1030,14 +1027,16 @@ class Agent(ABC):
             return
 
         # 恢复被禁用的工具
-        if hasattr(self.tool_registry, '_temp_disabled_tools'):
+        if hasattr(self.tool_registry, "_temp_disabled_tools"):
             for tool_name, tool in self.tool_registry._temp_disabled_tools.items():
                 self.tool_registry._tools[tool_name] = tool
 
             # 清空临时禁用列表
             self.tool_registry._temp_disabled_tools = {}
 
-    def _get_subagent_metadata(self, duration: float, error: Optional[str]) -> Dict[str, Any]:
+    def _get_subagent_metadata(
+        self, duration: float, error: Optional[str]
+    ) -> Dict[str, Any]:
         """获取子代理执行元数据
 
         Args:
@@ -1063,7 +1062,7 @@ class Agent(ABC):
             "steps": steps,
             "tokens": tokens,
             "duration_seconds": round(duration, 2),
-            "tools_used": tools_used
+            "tools_used": tools_used,
         }
 
         if error:
@@ -1084,24 +1083,22 @@ class Agent(ABC):
 
         for msg in history:
             # 检查 tool_calls（FunctionCallAgent）
-            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
                 for tool_call in msg.tool_calls:
-                    if isinstance(tool_call, dict) and 'function' in tool_call:
-                        tools.add(tool_call['function'].get('name', ''))
+                    if isinstance(tool_call, dict) and "function" in tool_call:
+                        tools.add(tool_call["function"].get("name", ""))
 
             # 检查内容中的工具调用（ReActAgent）
             if msg.role == "assistant" and "Action:" in msg.content:
                 import re
-                matches = re.findall(r'Action:\s*(\w+)\[', msg.content)
+
+                matches = re.findall(r"Action:\s*(\w+)\[", msg.content)
                 tools.update(matches)
 
         return sorted(list(tools))
 
     def _generate_subagent_summary(
-        self,
-        task: str,
-        result: str,
-        metadata: Dict[str, Any]
+        self, task: str, result: str, metadata: Dict[str, Any]
     ) -> str:
         """生成子代理执行摘要
 
@@ -1125,13 +1122,13 @@ class Agent(ABC):
             f"任务: {task}",
             f"结果: {result_preview}",
             f"步数: {metadata['steps']}",
-            f"耗时: {metadata['duration_seconds']}秒"
+            f"耗时: {metadata['duration_seconds']}秒",
         ]
 
-        if metadata.get('tools_used'):
+        if metadata.get("tools_used"):
             summary_parts.append(f"工具: {', '.join(metadata['tools_used'])}")
 
-        if metadata.get('error'):
+        if metadata.get("error"):
             summary_parts.append(f"错误: {metadata['error']}")
 
         return "\n".join(summary_parts)
@@ -1151,9 +1148,10 @@ class Agent(ABC):
             if self.config.subagent_use_light_llm:
                 # 使用轻量模型
                 from ..core.llm import HelloAgentsLLM
+
                 light_llm = HelloAgentsLLM(
                     provider=self.config.subagent_light_llm_provider,
-                    model=self.config.subagent_light_llm_model
+                    model=self.config.subagent_light_llm_model,
                 )
                 llm = light_llm
             else:
@@ -1165,14 +1163,14 @@ class Agent(ABC):
                 agent_type=agent_type,
                 llm=llm,
                 tool_registry=self.tool_registry,
-                config=self.config
+                config=self.config,
             )
 
         # 创建并注册 TaskTool
         task_tool = TaskTool(
             agent_factory=agent_factory,
             tool_registry=self.tool_registry,
-            config=self.config
+            config=self.config,
         )
 
         self.tool_registry.register_tool(task_tool)
@@ -1201,14 +1199,14 @@ class Agent(ABC):
                 agent_type=agent_type,
                 llm=light_llm,
                 tool_registry=self.tool_registry,
-                config=self.config
+                config=self.config,
             )
 
         # 创建并注册 TaskTool
         task_tool = TaskTool(
             agent_factory=agent_factory,
             tool_registry=self.tool_registry,
-            config=self.config
+            config=self.config,
         )
 
         self.tool_registry.register_tool(task_tool)
@@ -1222,8 +1220,8 @@ class Agent(ABC):
 
         # 创建并注册 TodoWriteTool
         todo_tool = TodoWriteTool(
-            project_root=str(self.working_dir) if hasattr(self, 'working_dir') else ".",
-            persistence_dir=self.config.todowrite_persistence_dir
+            project_root=str(self.working_dir) if hasattr(self, "working_dir") else ".",
+            persistence_dir=self.config.todowrite_persistence_dir,
         )
 
         self.tool_registry.register_tool(todo_tool)
@@ -1236,14 +1234,18 @@ class Agent(ABC):
         from ..tools.builtin.devlog_tool import DevLogTool
 
         # 获取 session_id（如果有 trace_logger 则使用其 session_id）
-        session_id = self.trace_logger.session_id if self.trace_logger else self._generate_session_id()
+        session_id = (
+            self.trace_logger.session_id
+            if self.trace_logger
+            else self._generate_session_id()
+        )
 
         # 创建并注册 DevLogTool
         devlog_tool = DevLogTool(
             session_id=session_id,
             agent_name=self.name,
-            project_root=str(self.working_dir) if hasattr(self, 'working_dir') else ".",
-            persistence_dir=self.config.devlog_persistence_dir
+            project_root=str(self.working_dir) if hasattr(self, "working_dir") else ".",
+            persistence_dir=self.config.devlog_persistence_dir,
         )
 
         self.tool_registry.register_tool(devlog_tool)
@@ -1252,6 +1254,7 @@ class Agent(ABC):
         """生成会话 ID（如果没有 trace_logger）"""
         import uuid
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         random_suffix = uuid.uuid4().hex[:4]
         return f"s-{timestamp}-{random_suffix}"
@@ -1266,8 +1269,10 @@ class Agent(ABC):
         light_llm = HelloAgentsLLM(
             provider=self.config.subagent_light_llm_provider,
             model=self.config.subagent_light_llm_model,
-            temperature=self.llm.temperature if hasattr(self.llm, 'temperature') else 0.7,
-            max_tokens=self.llm.max_tokens if hasattr(self.llm, 'max_tokens') else None
+            temperature=(
+                self.llm.temperature if hasattr(self.llm, "temperature") else 0.7
+            ),
+            max_tokens=self.llm.max_tokens if hasattr(self.llm, "max_tokens") else None,
         )
 
         return light_llm

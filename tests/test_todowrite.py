@@ -6,13 +6,18 @@ import tempfile
 import shutil
 from pathlib import Path
 from datetime import datetime
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from hello_agents.tools.builtin.todowrite_tool import TodoWriteTool, TodoItem, TodoList
 from hello_agents.tools.response import ToolResponse, ToolStatus
 from hello_agents.tools.errors import ToolErrorCode
 from hello_agents import ToolRegistry, ReActAgent, HelloAgentsLLM, Config
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 class TestTodoDataModel:
     """测试 Todo 数据模型"""
@@ -20,11 +25,7 @@ class TestTodoDataModel:
     def test_todo_item_creation(self):
         """测试 TodoItem 创建"""
         now = datetime.now().isoformat()
-        item = TodoItem(
-            content="实现用户认证",
-            status="pending",
-            created_at=now
-        )
+        item = TodoItem(content="实现用户认证", status="pending", created_at=now)
 
         assert item.content == "实现用户认证"
         assert item.status == "pending"
@@ -39,7 +40,7 @@ class TestTodoDataModel:
             content="实现订单处理",
             status="in_progress",
             created_at=now,
-            updated_at=later
+            updated_at=later,
         )
 
         assert item.updated_at == later
@@ -55,7 +56,7 @@ class TestTodoDataModel:
                 TodoItem("任务3", "in_progress", now),
                 TodoItem("任务4", "pending", now),
                 TodoItem("任务5", "pending", now),
-            ]
+            ],
         )
 
         stats = todos.get_stats()
@@ -73,7 +74,7 @@ class TestTodoDataModel:
                 TodoItem("任务1", "completed", now),
                 TodoItem("任务2", "in_progress", now),
                 TodoItem("任务3", "pending", now),
-            ]
+            ],
         )
 
         in_progress = todos.get_in_progress()
@@ -91,7 +92,7 @@ class TestTodoDataModel:
                 TodoItem("任务2", "pending", now),
                 TodoItem("任务3", "pending", now),
                 TodoItem("任务4", "in_progress", now),
-            ]
+            ],
         )
 
         pending = todos.get_pending(limit=2)
@@ -107,7 +108,7 @@ class TestTodoDataModel:
                 TodoItem("任务1", "completed", now),
                 TodoItem("任务2", "completed", now),
                 TodoItem("任务3", "pending", now),
-            ]
+            ],
         )
 
         completed = todos.get_completed()
@@ -128,10 +129,7 @@ class TestTodoWriteTool:
     @pytest.fixture
     def tool(self, temp_dir):
         """创建 TodoWriteTool 实例"""
-        return TodoWriteTool(
-            project_root=temp_dir,
-            persistence_dir="todos"
-        )
+        return TodoWriteTool(project_root=temp_dir, persistence_dir="todos")
 
     def test_tool_initialization(self, tool, temp_dir):
         """测试工具初始化"""
@@ -143,15 +141,17 @@ class TestTodoWriteTool:
 
     def test_create_todo_list(self, tool):
         """测试创建任务列表"""
-        response = tool.run({
-            "summary": "实现用户系统",
-            "todos": [
-                {"content": "实现用户注册", "status": "completed"},
-                {"content": "实现用户登录", "status": "in_progress"},
-                {"content": "实现权限管理", "status": "pending"},
-            ],
-            "action": "create"
-        })
+        response = tool.run(
+            {
+                "summary": "实现用户系统",
+                "todos": [
+                    {"content": "实现用户注册", "status": "completed"},
+                    {"content": "实现用户登录", "status": "in_progress"},
+                    {"content": "实现权限管理", "status": "pending"},
+                ],
+                "action": "create",
+            }
+        )
 
         assert isinstance(response, ToolResponse)
         assert response.status == ToolStatus.SUCCESS
@@ -165,12 +165,14 @@ class TestTodoWriteTool:
     def test_validate_single_in_progress_constraint(self, tool):
         """测试单个 in_progress 约束"""
         # 尝试创建多个 in_progress 任务
-        response = tool.run({
-            "todos": [
-                {"content": "任务1", "status": "in_progress"},
-                {"content": "任务2", "status": "in_progress"},
-            ]
-        })
+        response = tool.run(
+            {
+                "todos": [
+                    {"content": "任务1", "status": "in_progress"},
+                    {"content": "任务2", "status": "in_progress"},
+                ]
+            }
+        )
 
         assert response.status == ToolStatus.ERROR
         assert response.error_info["code"] == ToolErrorCode.INVALID_PARAM
@@ -178,11 +180,13 @@ class TestTodoWriteTool:
 
     def test_validate_empty_content(self, tool):
         """测试空内容验证"""
-        response = tool.run({
-            "todos": [
-                {"content": "", "status": "pending"},
-            ]
-        })
+        response = tool.run(
+            {
+                "todos": [
+                    {"content": "", "status": "pending"},
+                ]
+            }
+        )
 
         assert response.status == ToolStatus.ERROR
         assert response.error_info["code"] == ToolErrorCode.INVALID_PARAM
@@ -190,11 +194,13 @@ class TestTodoWriteTool:
 
     def test_validate_invalid_status(self, tool):
         """测试无效状态验证"""
-        response = tool.run({
-            "todos": [
-                {"content": "任务1", "status": "invalid_status"},
-            ]
-        })
+        response = tool.run(
+            {
+                "todos": [
+                    {"content": "任务1", "status": "invalid_status"},
+                ]
+            }
+        )
 
         assert response.status == ToolStatus.ERROR
         assert response.error_info["code"] == ToolErrorCode.INVALID_PARAM
@@ -203,11 +209,13 @@ class TestTodoWriteTool:
     def test_clear_action(self, tool):
         """测试清空操作"""
         # 先创建任务列表
-        tool.run({
-            "todos": [
-                {"content": "任务1", "status": "pending"},
-            ]
-        })
+        tool.run(
+            {
+                "todos": [
+                    {"content": "任务1", "status": "pending"},
+                ]
+            }
+        )
 
         # 清空
         response = tool.run({"action": "clear"})
@@ -218,12 +226,14 @@ class TestTodoWriteTool:
 
     def test_recap_generation_all_completed(self, tool):
         """测试 Recap 生成 - 全部完成"""
-        response = tool.run({
-            "todos": [
-                {"content": "任务1", "status": "completed"},
-                {"content": "任务2", "status": "completed"},
-            ]
-        })
+        response = tool.run(
+            {
+                "todos": [
+                    {"content": "任务1", "status": "completed"},
+                    {"content": "任务2", "status": "completed"},
+                ]
+            }
+        )
 
         assert "✅" in response.text
         assert "[2/2]" in response.text
@@ -231,14 +241,16 @@ class TestTodoWriteTool:
 
     def test_recap_generation_with_pending(self, tool):
         """测试 Recap 生成 - 有待处理任务"""
-        response = tool.run({
-            "todos": [
-                {"content": "任务1", "status": "completed"},
-                {"content": "任务2", "status": "in_progress"},
-                {"content": "任务3", "status": "pending"},
-                {"content": "任务4", "status": "pending"},
-            ]
-        })
+        response = tool.run(
+            {
+                "todos": [
+                    {"content": "任务1", "status": "completed"},
+                    {"content": "任务2", "status": "in_progress"},
+                    {"content": "任务3", "status": "pending"},
+                    {"content": "任务4", "status": "pending"},
+                ]
+            }
+        )
 
         assert "[1/4]" in response.text
         assert "进行中: 任务2" in response.text
@@ -255,19 +267,21 @@ class TestTodoWriteTool:
 
     def test_persistence(self, tool):
         """测试持久化"""
-        tool.run({
-            "summary": "测试持久化",
-            "todos": [
-                {"content": "任务1", "status": "pending"},
-            ]
-        })
+        tool.run(
+            {
+                "summary": "测试持久化",
+                "todos": [
+                    {"content": "任务1", "status": "pending"},
+                ],
+            }
+        )
 
         # 检查文件是否创建
         files = list(tool.persistence_dir.glob("todoList-*.json"))
         assert len(files) > 0
 
         # 验证文件内容
-        with open(files[0], 'r', encoding='utf-8') as f:
+        with open(files[0], "r", encoding="utf-8") as f:
             data = json.load(f)
 
         assert data["summary"] == "测试持久化"
@@ -285,15 +299,15 @@ class TestTodoWriteTool:
                     "content": "任务1",
                     "status": "completed",
                     "created_at": "2025-01-01T00:00:00",
-                    "updated_at": "2025-01-01T00:00:00"
+                    "updated_at": "2025-01-01T00:00:00",
                 }
             ],
             "created_at": "2025-01-01T00:00:00",
-            "stats": {"total": 1, "completed": 1, "in_progress": 0, "pending": 0}
+            "stats": {"total": 1, "completed": 1, "in_progress": 0, "pending": 0},
         }
 
         test_file = Path(temp_dir) / "test_load.json"
-        with open(test_file, 'w', encoding='utf-8') as f:
+        with open(test_file, "w", encoding="utf-8") as f:
             json.dump(test_data, f)
 
         # 加载
@@ -306,11 +320,9 @@ class TestTodoWriteTool:
     def test_json_string_parameter(self, tool):
         """测试 JSON 字符串参数"""
         # 传入 JSON 字符串而非对象
-        response = tool.run({
-            "todos": json.dumps([
-                {"content": "任务1", "status": "pending"}
-            ])
-        })
+        response = tool.run(
+            {"todos": json.dumps([{"content": "任务1", "status": "pending"}])}
+        )
 
         assert response.status == ToolStatus.SUCCESS
         assert len(tool.current_todos.todos) == 1
@@ -328,20 +340,14 @@ class TestAgentIntegration:
 
     def test_auto_register_todowrite_tool(self, temp_dir):
         """测试自动注册 TodoWriteTool"""
-        config = Config(
-            todowrite_enabled=True,
-            todowrite_persistence_dir="todos"
-        )
+        config = Config(todowrite_enabled=True, todowrite_persistence_dir="todos")
 
         registry = ToolRegistry()
         llm = HelloAgentsLLM()
 
         # 创建 Agent（应该自动注册 TodoWriteTool）
         agent = ReActAgent(
-            name="test_agent",
-            llm=llm,
-            tool_registry=registry,
-            config=config
+            name="test_agent", llm=llm, tool_registry=registry, config=config
         )
 
         # 验证工具已注册
@@ -357,13 +363,14 @@ class TestAgentIntegration:
         llm = HelloAgentsLLM()
 
         agent = ReActAgent(
-            name="test_agent",
-            llm=llm,
-            tool_registry=registry,
-            config=config
+            name="test_agent", llm=llm, tool_registry=registry, config=config
         )
 
         # 验证工具未注册
         tool = registry.get_tool("TodoWrite")
         assert tool is None
 
+
+if __name__ == "__main__":
+    # 运行所有测试
+    pytest.main([__file__, "-v", "-s", "--tb=short"])

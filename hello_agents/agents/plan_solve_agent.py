@@ -13,13 +13,17 @@ from ..core.lifecycle import LifecycleHook
 if TYPE_CHECKING:
     from ..tools.registry import ToolRegistry
 
+
 class Planner:
     """规划器 - 负责将复杂问题分解为简单步骤（使用 Function Calling）"""
 
     def __init__(self, llm_client: HelloAgentsLLM, system_prompt: Optional[str] = None):
         self.llm_client = llm_client
-        self.system_prompt = system_prompt or """你是一个顶级的AI规划专家。你的任务是将用户提出的复杂问题分解成一个由多个简单步骤组成的行动计划。
+        self.system_prompt = (
+            system_prompt
+            or """你是一个顶级的AI规划专家。你的任务是将用户提出的复杂问题分解成一个由多个简单步骤组成的行动计划。
 请确保计划中的每个步骤都是一个独立的、可执行的子任务，并且严格按照逻辑顺序排列。"""
+        )
 
     def plan(self, question: str, **kwargs) -> List[str]:
         """
@@ -46,17 +50,20 @@ class Planner:
                         "steps": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "按顺序排列的执行步骤列表"
+                            "description": "按顺序排列的执行步骤列表",
                         }
                     },
-                    "required": ["steps"]
-                }
-            }
+                    "required": ["steps"],
+                },
+            },
         }
 
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": f"请为以下问题生成详细的执行计划：\n\n{question}"}
+            {
+                "role": "user",
+                "content": f"请为以下问题生成详细的执行计划：\n\n{question}",
+            },
         ]
 
         try:
@@ -64,7 +71,7 @@ class Planner:
                 messages=messages,
                 tools=[plan_tool],
                 tool_choice={"type": "function", "function": {"name": "generate_plan"}},
-                **kwargs
+                **kwargs,
             )
 
             response_message = response.choices[0].message
@@ -88,6 +95,7 @@ class Planner:
             print(f"❌ 生成计划时发生错误: {e}")
             return []
 
+
 class Executor:
     """执行器 - 负责按计划逐步执行（支持 Function Calling）"""
 
@@ -95,13 +103,16 @@ class Executor:
         self,
         llm_client: HelloAgentsLLM,
         system_prompt: Optional[str] = None,
-        tool_registry: Optional['ToolRegistry'] = None,
+        tool_registry: Optional["ToolRegistry"] = None,
         enable_tool_calling: bool = True,
-        max_tool_iterations: int = 3
+        max_tool_iterations: int = 3,
     ):
         self.llm_client = llm_client
-        self.system_prompt = system_prompt or """你是一位顶级的AI执行专家。你的任务是严格按照给定的计划，一步步地解决问题。
+        self.system_prompt = (
+            system_prompt
+            or """你是一位顶级的AI执行专家。你的任务是严格按照给定的计划，一步步地解决问题。
 请专注于解决当前步骤，并输出该步骤的最终答案。"""
+        )
         self.tool_registry = tool_registry
         self.enable_tool_calling = enable_tool_calling and tool_registry is not None
         self.max_tool_iterations = max_tool_iterations
@@ -155,8 +166,12 @@ class Executor:
 
     def _format_history(self, history: List[Dict[str, str]]) -> str:
         """格式化历史记录"""
-        return "\n\n".join([f"步骤 {i}: {h['step']}\n结果: {h['result']}"
-                           for i, h in enumerate(history, 1)])
+        return "\n\n".join(
+            [
+                f"步骤 {i}: {h['step']}\n结果: {h['result']}"
+                for i, h in enumerate(history, 1)
+            ]
+        )
 
     def _execute_step(self, context: str, **kwargs) -> str:
         """
@@ -171,21 +186,24 @@ class Executor:
         """
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": context}
+            {"role": "user", "content": context},
         ]
 
         # 如果没有启用工具调用，直接返回
         if not self.enable_tool_calling or not self.tool_registry:
             llm_response = self.llm_client.invoke(messages, **kwargs)
-            return llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
+            return (
+                llm_response.content
+                if hasattr(llm_response, "content")
+                else str(llm_response)
+            )
 
         # 启用工具调用模式
         from .simple_agent import SimpleAgent
+
         # 临时创建一个 SimpleAgent 实例来复用工具调用逻辑
         temp_agent = SimpleAgent(
-            name="temp_executor",
-            llm=self.llm_client,
-            tool_registry=self.tool_registry
+            name="temp_executor", llm=self.llm_client, tool_registry=self.tool_registry
         )
         tool_schemas = temp_agent._build_tool_schemas()
 
@@ -196,10 +214,7 @@ class Executor:
 
             try:
                 response = self.llm_client.invoke_with_tools(
-                    messages=messages,
-                    tools=tool_schemas,
-                    tool_choice="auto",
-                    **kwargs
+                    messages=messages, tools=tool_schemas, tool_choice="auto", **kwargs
                 )
             except Exception as e:
                 print(f"❌ LLM 调用失败: {e}")
@@ -214,21 +229,23 @@ class Executor:
                 return response_message.content or ""
 
             # 将助手消息添加到历史
-            messages.append({
-                "role": "assistant",
-                "content": response_message.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": response_message.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            },
                         }
-                    }
-                    for tc in tool_calls
-                ]
-            })
+                        for tc in tool_calls
+                    ],
+                }
+            )
 
             # 执行所有工具调用
             for tool_call in tool_calls:
@@ -239,31 +256,36 @@ class Executor:
                     arguments = json.loads(tool_call.function.arguments)
                 except json.JSONDecodeError as e:
                     print(f"❌ 工具参数解析失败: {e}")
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call_id,
-                        "content": f"错误：参数格式不正确 - {str(e)}"
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": f"错误：参数格式不正确 - {str(e)}",
+                        }
+                    )
                     continue
 
                 # 执行工具（复用基类方法）
                 result = temp_agent._execute_tool_call(tool_name, arguments)
 
                 # 添加工具结果到消息
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call_id,
-                    "content": result
-                })
+                messages.append(
+                    {"role": "tool", "tool_call_id": tool_call_id, "content": result}
+                )
 
         # 如果超过最大迭代次数，获取最后一次回答
         if current_iteration >= self.max_tool_iterations:
             llm_response = self.llm_client.invoke(messages, **kwargs)
-            return llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
+            return (
+                llm_response.content
+                if hasattr(llm_response, "content")
+                else str(llm_response)
+            )
 
         return ""
 
-class PlanSolveAgent(Agent):
+
+class PlanAndSolveAgent(Agent):
     """
     Plan and Solve Agent - 分解规划与逐步执行的智能体
 
@@ -285,9 +307,9 @@ class PlanSolveAgent(Agent):
         config: Optional[Config] = None,
         planner_prompt: Optional[str] = None,
         executor_prompt: Optional[str] = None,
-        tool_registry: Optional['ToolRegistry'] = None,
+        tool_registry: Optional["ToolRegistry"] = None,
         enable_tool_calling: bool = True,
-        max_tool_iterations: int = 3
+        max_tool_iterations: int = 3,
     ):
         """
         初始化PlanSolveAgent
@@ -304,13 +326,7 @@ class PlanSolveAgent(Agent):
             max_tool_iterations: 最大工具调用迭代次数
         """
         # 传递 tool_registry 到基类
-        super().__init__(
-            name,
-            llm,
-            system_prompt,
-            config,
-            tool_registry=tool_registry
-        )
+        super().__init__(name, llm, system_prompt, config, tool_registry=tool_registry)
 
         self.planner = Planner(self.llm, planner_prompt)
         self.executor = Executor(
@@ -318,38 +334,38 @@ class PlanSolveAgent(Agent):
             executor_prompt,
             tool_registry=tool_registry,
             enable_tool_calling=enable_tool_calling,
-            max_tool_iterations=max_tool_iterations
+            max_tool_iterations=max_tool_iterations,
         )
-    
+
     def run(self, input_text: str, **kwargs) -> str:
         """
         运行Plan and Solve Agent
-        
+
         Args:
             input_text: 要解决的问题
             **kwargs: 其他参数
-            
+
         Returns:
             最终答案
         """
         print(f"\n🤖 {self.name} 开始处理问题: {input_text}")
-        
+
         # 1. 生成计划
         plan = self.planner.plan(input_text, **kwargs)
         if not plan:
             final_answer = "无法生成有效的行动计划，任务终止。"
             print(f"\n--- 任务终止 ---\n{final_answer}")
-            
+
             # 保存到历史记录
             self.add_message(Message(input_text, "user"))
             self.add_message(Message(final_answer, "assistant"))
-            
+
             return final_answer
-        
+
         # 2. 执行计划
         final_answer = self.executor.execute(input_text, plan, **kwargs)
         print(f"\n--- 任务完成 ---\n最终答案: {final_answer}")
-        
+
         # 保存到历史记录
         self.add_message(Message(input_text, "user"))
         self.add_message(Message(final_answer, "assistant"))
@@ -362,7 +378,7 @@ class PlanSolveAgent(Agent):
         on_start: LifecycleHook = None,
         on_finish: LifecycleHook = None,
         on_error: LifecycleHook = None,
-        **kwargs
+        **kwargs,
     ) -> AsyncGenerator[StreamEvent, None]:
         """
         PlanAgent 真正的流式执行
@@ -383,9 +399,7 @@ class PlanSolveAgent(Agent):
         """
         # 发送开始事件
         yield StreamEvent.create(
-            StreamEventType.AGENT_START,
-            self.name,
-            input_text=input_text
+            StreamEventType.AGENT_START, self.name, input_text=input_text
         )
 
         try:
@@ -394,7 +408,7 @@ class PlanSolveAgent(Agent):
                 StreamEventType.STEP_START,
                 self.name,
                 phase="planning",
-                description="生成执行计划"
+                description="生成执行计划",
             )
 
             print(f"\n🤖 {self.name} 开始处理问题: {input_text}")
@@ -406,16 +420,11 @@ class PlanSolveAgent(Agent):
                 error_msg = "无法生成有效的行动计划，任务终止。"
 
                 yield StreamEvent.create(
-                    StreamEventType.ERROR,
-                    self.name,
-                    error=error_msg,
-                    phase="planning"
+                    StreamEventType.ERROR, self.name, error=error_msg, phase="planning"
                 )
 
                 yield StreamEvent.create(
-                    StreamEventType.AGENT_FINISH,
-                    self.name,
-                    result=error_msg
+                    StreamEventType.AGENT_FINISH, self.name, result=error_msg
                 )
 
                 self.add_message(Message(input_text, "user"))
@@ -427,7 +436,7 @@ class PlanSolveAgent(Agent):
                 self.name,
                 phase="planning",
                 plan=plan,
-                total_steps=len(plan)
+                total_steps=len(plan),
             )
 
             # 阶段 2：执行计划
@@ -443,22 +452,24 @@ class PlanSolveAgent(Agent):
                     phase="execution",
                     step=step_num,
                     total_steps=len(plan),
-                    description=step_description
+                    description=step_description,
                 )
 
                 print(f"\n--- 步骤 {step_num}/{len(plan)} ---")
                 print(f"📋 {step_description}")
 
                 # 构建执行提示
-                context = "\n".join([
-                    f"步骤 {j+1}: {plan[j]} -> {step_results[j]}"
-                    for j in range(len(step_results))
-                ])
+                context = "\n".join(
+                    [
+                        f"步骤 {j + 1}: {plan[j]} -> {step_results[j]}"
+                        for j in range(len(step_results))
+                    ]
+                )
 
                 prompt = f"""原始问题: {input_text}
 
 完整计划:
-{chr(10).join([f"{j+1}. {s}" for j, s in enumerate(plan)])}
+{chr(10).join([f"{j + 1}. {s}" for j, s in enumerate(plan)])}
 
 已完成的步骤:
 {context if context else "无"}
@@ -479,7 +490,7 @@ class PlanSolveAgent(Agent):
                         self.name,
                         chunk=chunk,
                         phase="execution",
-                        step=step_num
+                        step=step_num,
                     )
 
                     print(chunk, end="", flush=True)
@@ -494,7 +505,7 @@ class PlanSolveAgent(Agent):
                     self.name,
                     phase="execution",
                     step=step_num,
-                    result=step_result
+                    result=step_result,
                 )
 
             # 生成最终答案
@@ -502,13 +513,13 @@ class PlanSolveAgent(Agent):
                 StreamEventType.STEP_START,
                 self.name,
                 phase="final_answer",
-                description="生成最终答案"
+                description="生成最终答案",
             )
 
             final_prompt = f"""原始问题: {input_text}
 
 执行计划和结果:
-{chr(10).join([f"{i+1}. {plan[i]} -> {step_results[i]}" for i in range(len(plan))])}
+{chr(10).join([f"{i + 1}. {plan[i]} -> {step_results[i]}" for i in range(len(plan))])}
 
 请基于以上步骤的执行结果，给出原始问题的最终答案。"""
 
@@ -522,7 +533,7 @@ class PlanSolveAgent(Agent):
                     StreamEventType.LLM_CHUNK,
                     self.name,
                     chunk=chunk,
-                    phase="final_answer"
+                    phase="final_answer",
                 )
 
             # 发送完成事件
@@ -530,7 +541,7 @@ class PlanSolveAgent(Agent):
                 StreamEventType.AGENT_FINISH,
                 self.name,
                 result=final_answer,
-                total_steps=len(plan)
+                total_steps=len(plan),
             )
 
             print(f"\n--- 任务完成 ---\n最终答案: {final_answer}")
@@ -545,6 +556,6 @@ class PlanSolveAgent(Agent):
                 StreamEventType.ERROR,
                 self.name,
                 error=str(e),
-                error_type=type(e).__name__
+                error_type=type(e).__name__,
             )
             raise

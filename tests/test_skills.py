@@ -12,13 +12,19 @@ import pytest
 from pathlib import Path
 import tempfile
 import shutil
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from hello_agents.skills import SkillLoader, Skill
 from hello_agents.tools.builtin.skill_tool import SkillTool
 from hello_agents.tools.response import ToolResponse, ToolStatus
 from hello_agents.tools.errors import ToolErrorCode
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 class TestSkillLoader:
     """测试 SkillLoader"""
@@ -37,7 +43,8 @@ class TestSkillLoader:
         skill_dir.mkdir()
 
         skill_md = skill_dir / "SKILL.md"
-        skill_md.write_text("""---
+        skill_md.write_text(
+            """---
 name: test-skill
 description: A test skill for unit testing
 ---
@@ -51,7 +58,9 @@ This is a test skill body.
 Use this skill for testing.
 
 $ARGUMENTS
-""", encoding='utf-8')
+""",
+            encoding="utf-8",
+        )
 
         return skill_dir
 
@@ -109,13 +118,16 @@ $ARGUMENTS
         # 添加新技能
         new_skill_dir = temp_skills_dir / "new-skill"
         new_skill_dir.mkdir()
-        (new_skill_dir / "SKILL.md").write_text("""---
+        (new_skill_dir / "SKILL.md").write_text(
+            """---
 name: new-skill
 description: A new skill
 ---
 
 # New Skill
-""", encoding='utf-8')
+""",
+            encoding="utf-8",
+        )
 
         # 重载
         loader.reload()
@@ -141,7 +153,8 @@ class TestSkillTool:
         skill_dir.mkdir()
 
         # 创建 SKILL.md
-        (skill_dir / "SKILL.md").write_text("""---
+        (skill_dir / "SKILL.md").write_text(
+            """---
 name: resource-skill
 description: A skill with resources
 ---
@@ -151,7 +164,9 @@ description: A skill with resources
 Use the scripts in the scripts/ folder.
 
 $ARGUMENTS
-""", encoding='utf-8')
+""",
+            encoding="utf-8",
+        )
 
         # 创建资源文件夹
         scripts_dir = skill_dir / "scripts"
@@ -230,10 +245,7 @@ class TestAgentIntegration:
                     return "test"
 
             agent = TestAgent(
-                name="test-agent",
-                llm=llm,
-                config=config,
-                tool_registry=registry
+                name="test-agent", llm=llm, config=config, tool_registry=registry
             )
 
             # 验证 SkillLoader 已创建
@@ -272,13 +284,16 @@ class TestCacheFriendly:
         """验证技能内容作为 tool_result 返回（而非修改 system_prompt）"""
         skill_dir = tmp_path / "test-skill"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("""---
+        (skill_dir / "SKILL.md").write_text(
+            """---
 name: test
 description: Test skill
 ---
 
 # Test Content
-""", encoding='utf-8')
+""",
+            encoding="utf-8",
+        )
 
         loader = SkillLoader(skills_dir=tmp_path)
         tool = SkillTool(skill_loader=loader)
@@ -292,3 +307,7 @@ description: Test skill
         assert "<skill-loaded" in response.text
         assert "</skill-loaded>" in response.text
 
+
+if __name__ == "__main__":
+    # 运行所有测试
+    pytest.main([__file__, "-v", "-s", "--tb=short"])

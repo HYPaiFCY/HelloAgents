@@ -33,7 +33,7 @@ class HelloAgentsLLM:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         timeout: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         初始化LLM客户端
@@ -60,24 +60,32 @@ class HelloAgentsLLM:
 
         # 验证必要参数
         if not self.model:
-            raise HelloAgentsException("必须提供模型名称（model参数或LLM_MODEL_ID环境变量）")
+            raise HelloAgentsException(
+                "必须提供模型名称（model参数或LLM_MODEL_ID环境变量）"
+            )
         if not self.api_key:
-            raise HelloAgentsException("必须提供API密钥（api_key参数或LLM_API_KEY环境变量）")
+            raise HelloAgentsException(
+                "必须提供API密钥（api_key参数或LLM_API_KEY环境变量）"
+            )
         if not self.base_url:
-            raise HelloAgentsException("必须提供服务地址（base_url参数或LLM_BASE_URL环境变量）")
+            raise HelloAgentsException(
+                "必须提供服务地址（base_url参数或LLM_BASE_URL环境变量）"
+            )
 
         # 创建适配器（自动检测）
         self._adapter: BaseLLMAdapter = create_adapter(
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=self.timeout,
-            model=self.model
+            model=self.model,
         )
 
         # 最后一次调用的统计信息（用于流式调用）
         self.last_call_stats: Optional[StreamStats] = None
 
-    def think(self, messages: List[Dict[str, str]], temperature: Optional[float] = None) -> Iterator[str]:
+    def think(
+        self, messages: List[Dict[str, str]], temperature: Optional[float] = None
+    ) -> Iterator[str]:
         """
         调用大语言模型进行思考，并返回流式响应。
         这是主要的调用方法，默认使用流式响应以获得更好的用户体验。
@@ -109,7 +117,7 @@ class HelloAgentsLLM:
             print()  # 换行
 
             # 保存统计信息
-            if hasattr(self._adapter, 'last_stats'):
+            if hasattr(self._adapter, "last_stats"):
                 self.last_call_stats = self._adapter.last_stats
 
         except Exception as e:
@@ -168,11 +176,13 @@ class HelloAgentsLLM:
             call_kwargs["max_tokens"] = kwargs.pop("max_tokens", self.max_tokens)
         call_kwargs.update(kwargs)
 
-        for chunk in self._adapter.stream_invoke(messages, temperature=temperature, **call_kwargs):
+        for chunk in self._adapter.stream_invoke(
+            messages, temperature=temperature, **call_kwargs
+        ):
             yield chunk
 
         # 保存统计信息
-        if hasattr(self._adapter, 'last_stats'):
+        if hasattr(self._adapter, "last_stats"):
             self.last_call_stats = self._adapter.last_stats
 
     def invoke_with_tools(
@@ -180,7 +190,7 @@ class HelloAgentsLLM:
         messages: List[Dict],
         tools: List[Dict],
         tool_choice: Union[str, Dict] = "auto",
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         调用 LLM 并支持工具调用（Function Calling）
@@ -234,15 +244,10 @@ class HelloAgentsLLM:
             print(response.content)
         """
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: self.invoke(messages, **kwargs)
-        )
+        return await loop.run_in_executor(None, lambda: self.invoke(messages, **kwargs))
 
     async def astream_invoke(
-        self,
-        messages: List[Dict[str, str]],
-        **kwargs
+        self, messages: List[Dict[str, str]], **kwargs
     ) -> AsyncIterator[str]:
         """
         真正的异步流式调用 LLM（使用 adapter 的异步实现）
@@ -263,7 +268,7 @@ class HelloAgentsLLM:
             yield chunk
 
         # 保存统计信息
-        if hasattr(self._adapter, 'last_stats'):
+        if hasattr(self._adapter, "last_stats"):
             self.last_call_stats = self._adapter.last_stats
 
     async def ainvoke_with_tools(
@@ -271,7 +276,7 @@ class HelloAgentsLLM:
         messages: List[Dict],
         tools: List[Dict],
         tool_choice: Union[str, Dict] = "auto",
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         异步调用 LLM 并支持工具调用（Function Calling）
@@ -287,6 +292,5 @@ class HelloAgentsLLM:
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,
-            lambda: self.invoke_with_tools(messages, tools, tool_choice, **kwargs)
+            None, lambda: self.invoke_with_tools(messages, tools, tool_choice, **kwargs)
         )
