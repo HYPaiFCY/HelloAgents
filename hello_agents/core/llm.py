@@ -5,7 +5,7 @@ import asyncio
 from typing import Optional, Iterator, List, Dict, Union, Any, AsyncIterator
 
 from .exceptions import HelloAgentsException
-from .llm_response import LLMResponse, StreamStats
+from .llm_response import LLMResponse, StreamStats, LLMToolResponse
 from .llm_adapters import create_adapter, BaseLLMAdapter
 
 
@@ -191,7 +191,7 @@ class HelloAgentsLLM:
         tools: List[Dict],
         tool_choice: Union[str, Dict] = "auto",
         **kwargs,
-    ) -> Any:
+    ) -> LLMToolResponse:
         """
         调用 LLM 并支持工具调用（Function Calling）
 
@@ -208,7 +208,7 @@ class HelloAgentsLLM:
             **kwargs: 其他参数（temperature, max_tokens 等）
 
         Returns:
-            原生响应对象，包含 tool_calls 信息
+            统一的工具调用响应对象 (LLMToolResponse)
 
         Raises:
             HelloAgentsException: 当 LLM 调用失败时
@@ -277,7 +277,7 @@ class HelloAgentsLLM:
         tools: List[Dict],
         tool_choice: Union[str, Dict] = "auto",
         **kwargs,
-    ) -> Any:
+    ) -> LLMToolResponse:
         """
         异步调用 LLM 并支持工具调用（Function Calling）
 
@@ -288,7 +288,7 @@ class HelloAgentsLLM:
             **kwargs: 其他参数
 
         Returns:
-            原生响应对象，包含 tool_calls 信息
+            统一的工具调用响应对象 (LLMToolResponse)
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
