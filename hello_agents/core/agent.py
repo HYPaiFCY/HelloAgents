@@ -316,7 +316,10 @@ class Agent(ABC):
             是否需要压缩
         """
         threshold = int(self.config.context_window * self.config.compression_threshold)
-        return self._history_token_count > threshold
+        return (
+            self._history_token_count > threshold
+            or self.history_manager.estimate_rounds() >= self.config.min_retain_rounds
+        )
 
     def _compress_history(self):
         """压缩历史

@@ -13,6 +13,7 @@ from ..core.lifecycle import LifecycleHook
 if TYPE_CHECKING:
     from ..tools.registry import ToolRegistry
 
+
 class SimpleAgent(Agent):
     """简单的对话Agent，支持可选的工具调用
 
@@ -28,7 +29,7 @@ class SimpleAgent(Agent):
         llm: HelloAgentsLLM,
         system_prompt: Optional[str] = None,
         config: Optional[Config] = None,
-        tool_registry: Optional['ToolRegistry'] = None,
+        tool_registry: Optional["ToolRegistry"] = None,
         enable_tool_calling: bool = True,
         max_tool_iterations: int = 3
     ):
@@ -45,13 +46,7 @@ class SimpleAgent(Agent):
             max_tool_iterations: 最大工具调用迭代次数
         """
         # 传递 tool_registry 到基类
-        super().__init__(
-            name,
-            llm,
-            system_prompt,
-            config,
-            tool_registry=tool_registry
-        )
+        super().__init__(name, llm, system_prompt, config, tool_registry=tool_registry)
         self.enable_tool_calling = enable_tool_calling and tool_registry is not None
         self.max_tool_iterations = max_tool_iterations
 
@@ -77,7 +72,7 @@ class SimpleAgent(Agent):
             trace_logger = TraceLogger(
                 output_dir=self.config.trace_dir,
                 sanitize=self.config.trace_sanitize,
-                html_include_raw_response=self.config.trace_html_include_raw_response
+                html_include_raw_response=self.config.trace_html_include_raw_response,
             )
             trace_logger.log_event(
                 "session_start",
@@ -93,14 +88,17 @@ class SimpleAgent(Agent):
         # 记录用户消息
         if trace_logger:
             trace_logger.log_event(
-                "message_written",
-                {"role": "user", "content": input_text}
+                "message_written", {"role": "user", "content": input_text}
             )
 
         # 如果没有启用工具调用，直接返回 LLM 响应
         if not self.enable_tool_calling or not self.tool_registry:
             llm_response = self.llm.invoke(messages, **kwargs)
-            response_text = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
+            response_text = (
+                llm_response.content
+                if hasattr(llm_response, "content")
+                else str(llm_response)
+            )
 
             # 保存到历史记录
             self.add_message(Message(input_text, "user"))
@@ -114,9 +112,15 @@ class SimpleAgent(Agent):
                         "duration": duration,
                         "final_answer": response_text,
                         "status": "success",
-                        "usage": llm_response.usage if hasattr(llm_response, 'usage') else {},
-                        "latency_ms": llm_response.latency_ms if hasattr(llm_response, 'latency_ms') else 0
-                    }
+                        "usage": (
+                            llm_response.usage if hasattr(llm_response, "usage") else {}
+                        ),
+                        "latency_ms": (
+                            llm_response.latency_ms
+                            if hasattr(llm_response, "latency_ms")
+                            else 0
+                        ),
+                    },
                 )
                 trace_logger.finalize()
 
@@ -134,10 +138,7 @@ class SimpleAgent(Agent):
             # 调用 LLM（Function Calling）
             try:
                 response = self.llm.invoke_with_tools(
-                    messages=messages,
-                    tools=tool_schemas,
-                    tool_choice="auto",
-                    **kwargs
+                    messages=messages, tools=tool_schemas, tool_choice="auto", **kwargs
                 )
             except Exception as e:
                 print(f"❌ LLM 调用失败: {e}")
@@ -145,7 +146,7 @@ class SimpleAgent(Agent):
                     trace_logger.log_event(
                         "error",
                         {"error_type": "LLM_ERROR", "message": str(e)},
-                        step=current_iteration
+                        step=current_iteration,
                     )
                 break
 
@@ -159,14 +160,22 @@ class SimpleAgent(Agent):
                     "model_output",
                     {
                         "content": response.content,
-                        "tool_calls": len(response.tool_calls) if response.tool_calls else 0,
+                        "tool_calls": (
+                            len(response.tool_calls) if response.tool_calls else 0
+                        ),
                         "usage": {
-                            "prompt_tokens": usage.get("prompt_tokens", 0) if usage else 0,
-                            "completion_tokens": usage.get("completion_tokens", 0) if usage else 0,
-                            "total_tokens": usage.get("total_tokens", 0) if usage else 0
-                        }
+                            "prompt_tokens": (
+                                usage.get("prompt_tokens", 0) if usage else 0
+                            ),
+                            "completion_tokens": (
+                                usage.get("completion_tokens", 0) if usage else 0
+                            ),
+                            "total_tokens": (
+                                usage.get("total_tokens", 0) if usage else 0
+                            ),
+                        },
                     },
-                    step=current_iteration
+                    step=current_iteration,
                 )
 
             # 处理工具调用
@@ -177,21 +186,20 @@ class SimpleAgent(Agent):
                 break
 
             # 将助手消息添加到历史
-            messages.append({
-                "role": "assistant",
-                "content": response.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": tc.arguments
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": response.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.name, "arguments": tc.arguments},
                         }
-                    }
-                    for tc in tool_calls
-                ]
-            })
+                        for tc in tool_calls
+                    ],
+                }
+            )
 
             # 执行所有工具调用
             for tool_call in tool_calls:
@@ -202,11 +210,13 @@ class SimpleAgent(Agent):
                     arguments = json.loads(tool_call.arguments)
                 except json.JSONDecodeError as e:
                     print(f"❌ 工具参数解析失败: {e}")
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call_id,
-                        "content": f"错误：参数格式不正确 - {str(e)}"
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": f"错误：参数格式不正确 - {str(e)}",
+                        }
+                    )
                     continue
 
                 # 记录工具调用
@@ -216,9 +226,9 @@ class SimpleAgent(Agent):
                         {
                             "tool_name": tool_name,
                             "tool_call_id": tool_call_id,
-                            "args": arguments
+                            "args": arguments,
                         },
-                        step=current_iteration
+                        step=current_iteration,
                     )
 
                 # 执行工具（复用基类方法）
@@ -231,22 +241,24 @@ class SimpleAgent(Agent):
                         {
                             "tool_name": tool_name,
                             "tool_call_id": tool_call_id,
-                            "result": result
+                            "result": result,
                         },
-                        step=current_iteration
+                        step=current_iteration,
                     )
 
                 # 添加工具结果到消息
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call_id,
-                    "content": result
-                })
+                messages.append(
+                    {"role": "tool", "tool_call_id": tool_call_id, "content": result}
+                )
 
         # 如果超过最大迭代次数，获取最后一次回答
         if current_iteration >= self.max_tool_iterations and not final_response:
             llm_response = self.llm.invoke(messages, **kwargs)
-            final_response = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
+            final_response = (
+                llm_response.content
+                if hasattr(llm_response, "content")
+                else str(llm_response)
+            )
 
         # 保存到历史记录
         self.add_message(Message(input_text, "user"))
@@ -260,12 +272,22 @@ class SimpleAgent(Agent):
                     "duration": duration,
                     "total_steps": current_iteration,
                     "final_answer": final_response,
-                    "status": "success"
-                }
+                    "status": "success",
+                },
             )
             trace_logger.finalize()
 
         return final_response
+
+    def _to_api_message(self, msg: Message) -> Dict[str, str]:
+        """将内部消息转换为 LLM API 可接受的消息格式。
+
+        说明：
+        - 内部历史允许使用 `summary` 角色表示压缩摘要
+        - 外部聊天 API 不支持 `summary`，这里统一映射为 `system`
+        """
+        role = "system" if msg.role == "summary" else msg.role
+        return {"role": role, "content": msg.content}
 
     def _build_messages(self, input_text: str) -> List[Dict[str, str]]:
         """构建消息列表"""
@@ -273,23 +295,14 @@ class SimpleAgent(Agent):
 
         # 添加系统提示词
         if self.system_prompt:
-            messages.append({
-                "role": "system",
-                "content": self.system_prompt
-            })
+            messages.append({"role": "system", "content": self.system_prompt})
 
         # 添加历史消息
         for msg in self._history:
-            messages.append({
-                "role": msg.role,
-                "content": msg.content
-            })
+            messages.append(self._to_api_message(msg))
 
         # 添加用户问题
-        messages.append({
-            "role": "user",
-            "content": input_text
-        })
+        messages.append({"role": "user", "content": input_text})
 
         return messages
 
@@ -305,6 +318,7 @@ class SimpleAgent(Agent):
         """
         if not self.tool_registry:
             from ..tools.registry import ToolRegistry
+
             self.tool_registry = ToolRegistry()
             self.enable_tool_calling = True
 
@@ -331,31 +345,31 @@ class SimpleAgent(Agent):
     def stream_run(self, input_text: str, **kwargs) -> Iterator[str]:
         """
         流式运行Agent
-        
+
         Args:
             input_text: 用户输入
             **kwargs: 其他参数
-            
+
         Yields:
             Agent响应片段
         """
         # 构建消息列表
         messages = []
-        
+
         if self.system_prompt:
             messages.append({"role": "system", "content": self.system_prompt})
-        
+
         for msg in self._history:
-            messages.append({"role": msg.role, "content": msg.content})
-        
+            messages.append(self._to_api_message(msg))
+
         messages.append({"role": "user", "content": input_text})
-        
+
         # 流式调用LLM
         full_response = ""
         for chunk in self.llm.stream_invoke(messages, **kwargs):
             full_response += chunk
             yield chunk
-        
+
         # 保存完整对话到历史记录
         self.add_message(Message(input_text, "user"))
         self.add_message(Message(full_response, "assistant"))
@@ -366,7 +380,7 @@ class SimpleAgent(Agent):
         on_start: LifecycleHook = None,
         on_finish: LifecycleHook = None,
         on_error: LifecycleHook = None,
-        **kwargs
+        **kwargs,
     ) -> AsyncGenerator[StreamEvent, None]:
         """
         SimpleAgent 真正的流式执行
@@ -385,9 +399,7 @@ class SimpleAgent(Agent):
         """
         # 发送开始事件
         yield StreamEvent.create(
-            StreamEventType.AGENT_START,
-            self.name,
-            input_text=input_text
+            StreamEventType.AGENT_START, self.name, input_text=input_text
         )
 
         try:
@@ -398,7 +410,7 @@ class SimpleAgent(Agent):
                 messages.append({"role": "system", "content": self.system_prompt})
 
             for msg in self._history:
-                messages.append({"role": msg.role, "content": msg.content})
+                messages.append(self._to_api_message(msg))
 
             messages.append({"role": "user", "content": input_text})
 
@@ -409,16 +421,12 @@ class SimpleAgent(Agent):
 
                 # 发送 LLM 输出块
                 yield StreamEvent.create(
-                    StreamEventType.LLM_CHUNK,
-                    self.name,
-                    chunk=chunk
+                    StreamEventType.LLM_CHUNK, self.name, chunk=chunk
                 )
 
             # 发送完成事件
             yield StreamEvent.create(
-                StreamEventType.AGENT_FINISH,
-                self.name,
-                result=full_response
+                StreamEventType.AGENT_FINISH, self.name, result=full_response
             )
 
             # 保存到历史
@@ -431,6 +439,6 @@ class SimpleAgent(Agent):
                 StreamEventType.ERROR,
                 self.name,
                 error=str(e),
-                error_type=type(e).__name__
+                error_type=type(e).__name__,
             )
             raise
