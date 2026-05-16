@@ -1,3 +1,0 @@
-{"ts": "2026-03-15T12:13:41.929788", "session_id": "s-20260315-121341-8d1b", "step": null, "event": "session_start", "payload": {"agent_name": "记忆助手", "agent_type": "SimpleAgent"}}
-{"ts": "2026-03-15T12:13:41.930790", "session_id": "s-20260315-121341-8d1b", "step": null, "event": "message_written", "payload": {"role": "user", "content": "我最喜欢的颜色是蓝色"}}
-{"ts": "2026-03-15T12:13:44.312057", "session_id": "s-20260315-121341-8d1b", "step": null, "event": "session_end", "payload": {"duration": 2.382269, "final_answer": "蓝色是一种非常受欢迎的颜色，常常让人联想到平静、稳定和信任。你喜欢蓝色的原因是什么呢？是因为它让你感到放松，还是因为它让你想到某些特别的事物或回忆？", "status": "success", "usage": {"prompt_tokens": 15, "completion_tokens": 60, "total_tokens": 75}, "latency_ms": 2348}}

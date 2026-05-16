@@ -1,3 +1,0 @@
-{"ts": "2026-03-15T12:13:44.314041", "session_id": "s-20260315-121344-d401", "step": null, "event": "session_start", "payload": {"agent_name": "记忆助手", "agent_type": "SimpleAgent"}}
-{"ts": "2026-03-15T12:13:44.315039", "session_id": "s-20260315-121344-d401", "step": null, "event": "message_written", "payload": {"role": "user", "content": "我最喜欢什么颜色？"}}
-{"ts": "2026-03-15T12:13:45.427458", "session_id": "s-20260315-121344-d401", "step": null, "event": "session_end", "payload": {"duration": 1.113417, "final_answer": "你之前提到过你最喜欢的颜色是蓝色。这个颜色让人感到平静和信任，不知道是否有特别的原因让你喜欢蓝色呢？", "status": "success", "usage": {"prompt_tokens": 88, "completion_tokens": 40, "total_tokens": 128}, "latency_ms": 1111}}
