@@ -318,7 +318,7 @@ class Agent(ABC):
         threshold = int(self.config.context_window * self.config.compression_threshold)
         return (
             self._history_token_count > threshold
-            or self.history_manager.estimate_rounds() >= self.config.min_retain_rounds
+            and self.history_manager.estimate_rounds() > self.config.min_retain_rounds
         )
 
     def _compress_history(self):
@@ -466,11 +466,9 @@ class Agent(ABC):
             from ..core.llm import HelloAgentsLLM
 
             # 使用配置中的轻量模型
-            provider = self.config.summary_llm_provider
             model = self.config.summary_llm_model
 
             self._summary_llm = HelloAgentsLLM(
-                provider=provider,
                 model=model,
                 temperature=self.config.summary_temperature,
                 max_tokens=self.config.summary_max_tokens,
@@ -1139,50 +1137,9 @@ class Agent(ABC):
     def _register_task_tool(self):
         """注册 TaskTool（子代理工具）
 
-        自动注册逻辑，在 __init__ 中调用（如果启用）
-        """
-        from ..agents.factory import default_subagent_factory
-        from ..tools.builtin.task_tool import TaskTool
-
-        # 创建 Agent 工厂函数
-        def agent_factory(agent_type: str) -> Agent:
-            """为 TaskTool 创建子代理实例"""
-            # 决定使用哪个 LLM
-            if self.config.subagent_use_light_llm:
-                # 使用轻量模型
-                from ..core.llm import HelloAgentsLLM
-
-                light_llm = HelloAgentsLLM(
-                    provider=self.config.subagent_light_llm_provider,
-                    model=self.config.subagent_light_llm_model,
-                )
-                llm = light_llm
-            else:
-                # 使用主模型
-                llm = self.llm
-
-            # 使用默认工厂创建子代理
-            return default_subagent_factory(
-                agent_type=agent_type,
-                llm=llm,
-                tool_registry=self.tool_registry,
-                config=self.config,
-            )
-
-        # 创建并注册 TaskTool
-        task_tool = TaskTool(
-            agent_factory=agent_factory,
-            tool_registry=self.tool_registry,
-            config=self.config,
-        )
-
-        self.tool_registry.register_tool(task_tool)
-
-    def _register_task_tool(self):
-        """注册 TaskTool（子代理工具）
-
         自动注册逻辑，支持用户自定义工厂函数。
         """
+
         from ..tools.builtin.task_tool import TaskTool
         from ..agents.factory import default_subagent_factory
 
@@ -1270,8 +1227,10 @@ class Agent(ABC):
         """
         # 复用主 LLM 的配置，但使用轻量模型
         light_llm = HelloAgentsLLM(
-            provider=self.config.subagent_light_llm_provider,
             model=self.config.subagent_light_llm_model,
+            api_key=getattr(self.llm, "api_key", None),
+            base_url=getattr(self.llm, "base_url", None),
+            timeout=getattr(self.llm, "timeout", None),
             temperature=(
                 self.llm.temperature if hasattr(self.llm, "temperature") else 0.7
             ),

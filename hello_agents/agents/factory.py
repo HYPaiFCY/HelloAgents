@@ -41,7 +41,7 @@ def create_agent(
         ValueError: 不支持的 agent_type
     """
     agent_type = agent_type.lower()
-    
+
     if agent_type == "react":
         from .react_agent import ReActAgent
         return ReActAgent(
@@ -51,7 +51,7 @@ def create_agent(
             config=config,
             system_prompt=system_prompt
         )
-    
+
     elif agent_type == "reflection":
         from .reflection_agent import ReflectionAgent
         return ReflectionAgent(
@@ -61,17 +61,18 @@ def create_agent(
             config=config,
             system_prompt=system_prompt
         )
-    
+
     elif agent_type == "plan":
-        from .plan_solve_agent import PlanSolveAgent
-        return PlanSolveAgent(
+        from .plan_solve_agent import PlanAndSolveAgent
+
+        return PlanAndSolveAgent(
             name=name,
             llm=llm,
             tool_registry=tool_registry,
             config=config,
-            system_prompt=system_prompt
+            system_prompt=system_prompt,
         )
-    
+
     elif agent_type == "simple":
         from .simple_agent import SimpleAgent
         return SimpleAgent(
@@ -80,7 +81,7 @@ def create_agent(
             config=config,
             system_prompt=system_prompt
         )
-    
+
     else:
         raise ValueError(
             f"不支持的 agent_type: {agent_type}。"
@@ -181,4 +182,3 @@ def _get_system_prompt_for_type(agent_type: str) -> str:
     }
     
     return prompts.get(agent_type.lower(), prompts["simple"])
-

@@ -5,11 +5,11 @@ from .react_agent import ReActAgent
 from .reflection_agent import ReflectionAgent
 from .plan_solve_agent import PlanAndSolveAgent
 
+# 向后兼容别名
+PlanSolveAgent = PlanAndSolveAgent
+
 # 子代理机制（第06章）
 from .factory import create_agent, default_subagent_factory
-
-# 向后兼容别名
-# PlanAndSolveAgent = PlanSolveAgent
 
 __all__ = [
     "SimpleAgent",

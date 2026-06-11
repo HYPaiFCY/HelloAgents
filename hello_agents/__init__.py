@@ -27,6 +27,9 @@ from .agents.react_agent import ReActAgent
 from .agents.reflection_agent import ReflectionAgent
 from .agents.plan_solve_agent import PlanAndSolveAgent
 
+# 向后兼容旧名称
+PlanSolveAgent = PlanAndSolveAgent
+
 # 工具系统
 from .tools.registry import ToolRegistry, global_registry
 from .tools.builtin.calculator import CalculatorTool, calculate
